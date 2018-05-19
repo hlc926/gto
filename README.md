@@ -15,7 +15,7 @@ Configurable remote host login script (with scp function)
 ### 使用:
 #### 修改配置文件 (具体参看knownhosts)
 1. 增加主机登录信息 ma mb mc mo (每个ip-port-user一行，以 === 开头，包括IP、端口、用户等)。
-2. 增加路由信息 (**===== mo ma mb mc mo**， 以 ===== 开头，表示要登录mo，需先登录ma，然后mb，然后mc，才能到达mo)。
+2. 增加路由信息 ( **===== mo ma mb mc mo**， 以 ===== 开头，表示要登录mo，需先登录ma，然后mb，然后mc，才能到达mo)。
 
 第2点的路由信息可以无，这样的话只能登录ma，因为到mb、mc、mo的路不通。  
 第2点的路由信息配置好后，不仅可以登录的mo，也可以登录到mb或mc(不需要再单独配置)。
@@ -41,5 +41,5 @@ Configurable remote host login script (with scp function)
 	usage: gto -scp hostsrc:/path/filesrc hostobj:/path/[fileobj] #scp. 将机器hostsrc的/path目录下的文件filesrc scp到机器hostobj的/path/[fileobj]
 
 #### 其它
-也可以增加路由信息 (**===== test ma **)，这样 `gto test` 等价于`gto ma`。
+也可以增加路由信息 ( **===== test ma** )，这样 `gto test` 等价于`gto ma`。
 
