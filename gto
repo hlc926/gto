@@ -1,5 +1,7 @@
 #!/bin/perl
 #
+# https://github.com/hlc926/gto
+# BSD 3-Clause "New" or "Revised" License
 
 use Expect; 
 # 'perl-Expect'  # maybe you need to install
