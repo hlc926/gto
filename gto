@@ -207,8 +207,9 @@ sub login_to {	# 登录主机 alia|ip-port-user
 	my $fa = $hhosts{$host}->[5];
 	my $cmd = $hhosts{$host}->[6];
 	my $param = $hhosts{$host}->[7];
-	my $param =~ s/#/ /g;
-	my $param = "" if ($param eq "-");
+
+	$param =~ s/#/ /g;
+	$param = "" if ($param eq "-");
 
 	my $str = "ssh $param -l $user $ip -p $port";
 #	print "[$str]\n";
@@ -218,8 +219,8 @@ sub login_to {	# 登录主机 alia|ip-port-user
 	} else {
 		$ept->send("$str\n") if $ept->expect($timeout, re=>"$fcur");;
 	}
-	if ($passwd eq "?") {
-	} elsif ($passwd ne "-") {
+
+	if ($passwd ne "-" && $passwd ne "?") {
 		$ept->send("$passwd\n") if $ept->expect($timeout, re=>"$fb");
 	}
 	
