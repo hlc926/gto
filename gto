@@ -34,7 +34,7 @@ if ($0 =~ /(.+)\/.+/) {
 $obj = shift;
 
 $bgn = 2;	# 路由是从下标2 (step1)开始," ===== obj step1 ... "
-$timeout = 300;
+$timeout = 3600;
 
 init_hosts_file(); # 读入hosts文件 ==> %halias %hhosts %hroute
 
