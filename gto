@@ -8,7 +8,15 @@ use Expect;
 
 # $exp = new Expect;  #new一个Expect.
 # $exp->spawn($command,@params);  #fork和exec一个新进程用来执行$command命令.
-# $exp->expect($timeout,$content); #'-re'.在$timeout内,期待出现包含$content的内容,默认是精确匹配,也可以使用正则表达式,expect($timeout,re=>'').
+# $exp->expect($timeout,$content); #在$timeout内,期待出现包含$content的内容,默认是精确匹配,
+# 	返回值($pos, $err, $match, $before, $after ) 
+# 	$pos 在标量环境中的返回值(匹配为1 超时为空'')，
+# 	$err 是出错信息，
+# 	$match 为成功匹配的字串，
+# 	$before 为匹配字串之前的输出部分，
+# 	$after 为匹配字串之后的输出部分
+#		$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
+#		$ept->send("$str\n") if $ept->expect($timeout, $fcur); 这种写法无论是否匹配都发送
 # $exp->send($string);  #向终端发送字符
 # $exp->debug(0|1|2);  #打印debug 信息,不同的数字表示不同的bug级别
 # $exp->interact();   #和用户进行交互,把控制权转交给用户
@@ -34,7 +42,6 @@ if ($0 =~ /(.+)\/.+/) {
 $obj = shift;
 
 $bgn = 2;	# 路由是从下标2 (step1)开始," ===== obj step1 ... "
-$timeout = 3600;
 
 init_hosts_file(); # 读入hosts文件 ==> %halias %hhosts %hroute
 
@@ -51,8 +58,10 @@ if ($obj eq "-showlflag") {
 		print "-scp need strsrc strobj \n";
 		exit;
 	}
+	$timeout = 3600;	# > 拷贝大文件的时长
 	sub_scp();
 } else {
+	$timeout = 30;
 	sub_ssh();
 }
 
@@ -217,17 +226,20 @@ sub login_to {	# 登录主机 alia|ip-port-user
 	if ($spawn eq "1") {
 		$ept = Expect->spawn("$str\n") or die $!;
 	} else {
-		$ept->send("$str\n") if $ept->expect($timeout, re=>"$fcur");;
+		$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 	}
 
 	if ($passwd ne "-" && $passwd ne "?") {
-		$ept->send("$passwd\n") if $ept->expect($timeout, re=>"$fb");
+		$ept->expect($timeout, 
+			['(yes/no)', sub {$ept->send("yes\n"); exp_continue;}],
+			[$fb, sub {$ept->send("$passwd\n");}],
+		);
 	}
-	
+		
 	if ($flag == 1) {
 		$cmd =~ s/#/ /g;
 		if ($cmd ne "-") {
-			$ept->send("$cmd\n") if $ept->expect($timeout, re=>"$fa");
+			$ept->send("$cmd\n") if (($ept->expect($timeout, $fa))[0] > 0);
 		}
 	}
 
@@ -277,7 +289,7 @@ sub sub_scp {
 	# 从当前机器的pathmid目录拷贝到后一机器(npos)	 #递归函数
 	if ($cntrt[1] == 1 && is_same_ipport($vecrt[1][0], "transit") == 1) {
 		if ($pathmid ne $pathobj || $filesrc ne $fileobj) {
-			$ept->send("cp -f $pathmid/$filesrc $pathobj/$fileobj;\n") if $ept->expect($timeout, re=>$fcur);
+			$ept->send("cp -f $pathmid/$filesrc $pathobj/$fileobj;\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 		}
 	} elsif (is_same_ipport($vecrt[1][0], "transit") == 1) { # step1是transit
 		cp_file_to($pathmid, 1, $fcur);
@@ -285,7 +297,7 @@ sub sub_scp {
 		cp_file_to($pathmid, 0, $fcur);
 	}
 
-	$ept->send("exit;\n") if $ept->expect($timeout, re=>$fcur);
+	$ept->send("exit;\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 	print "[$strsrc]===>[$strobj]\ndone!\n";
 }
 
@@ -314,15 +326,18 @@ sub cp_file_to { # 从当前机器的pathmid目录拷贝到后一机器(npos)	 #
 
 	my $str = "scp -P $port $pathmid/$filesrc $user\@$ip:$path/$file; ";
 #	print "####### [$npos] [$cntrt[1]] [$nhost]\n#######[$str]\n";
-	$ept->send("$str\n") if $ept->expect($timeout, re=>$fcur);
+	$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 	if ($passwd ne "-") {
-		$ept->send("$passwd\n") if $ept->expect($timeout, re=>$fb);
+		$ept->expect($timeout, 
+			['(yes/no)', sub {$ept->send("yes\n"); exp_continue;}],
+			[$fb, sub {$ept->send("$passwd\n");}],
+		);
 	}
 
 	if ($npos < $cntrt[1] - 1) {	# 后一台不是最后一台机器
 		my $fnew = login_to($nhost, 0, $fcur, 0);
 		cp_file_to("/tmp", $npos + 1, $fnew);	
-		$ept->send("exit;\n") if $ept->expect($timeout, re=>$fnew);
+		$ept->send("exit;\n") if (($ept->expect($timeout, $fnew))[0] > 0);
 	}
 }
 
@@ -335,7 +350,7 @@ sub get_file_from { 	#从后一机器(npos)取文件到当前机器的"/tmp" #�
 	if ($npos < $cntrt[0] - 1) {	# 后一台不是最后一台机器
 		my $fnew = login_to($nhost, 0, $fcur, 0);
 		get_file_from($npos + 1, $fnew);	
-		$ept->send("exit;\n") if $ept->expect($timeout, re=>$fnew);
+		$ept->send("exit;\n") if (($ept->expect($timeout, $fnew))[0] > 0);
 	}
 
 	$nhost = get_real_host($nhost);
@@ -354,9 +369,12 @@ sub get_file_from { 	#从后一机器(npos)取文件到当前机器的"/tmp" #�
 
 	my $str = "scp -P $port $user\@$ip:$path/$filesrc /tmp/; ";
 #	print "####### [$npos] $cntrt[0]] [$nhost]\n#######[$str]\n";
-	$ept->send("$str\n") if $ept->expect($timeout, re=>$fcur);
+	$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 	if ($passwd ne "-") {
-		$ept->send("$passwd\n") if $ept->expect($timeout, re=>$fb);
+		$ept->expect($timeout, 
+			['(yes/no)', sub {$ept->send("yes\n"); exp_continue;}],
+			[$fb, sub {$ept->send("$passwd\n");}],
+		);
 	}
 }
 
