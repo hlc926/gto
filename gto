@@ -156,13 +156,13 @@ sub insert_rt {
 	$hroute{$mykey} = $myvalue;
 }
 
-sub is_same_ipport{
+sub is_same_ipport {
 	my $hosta = shift;
 	my $hostb = shift;
 
 	my $host = get_real_host($hosta);
 	if (!defined($hhosts{$host})) {
-		print "login_to unknow to login [$host]\n";
+		print "is_same_ipport unknow to login [$host]\n";
 		exit;
 	}
 	my $ip = $hhosts{$host}->[0];
@@ -170,7 +170,7 @@ sub is_same_ipport{
 
 	$host = get_real_host($hostb);
 	if (!defined($hhosts{$host})) {
-		print "login_to unknow to login [$host]\n";
+		print "is_same_ipport unknow to login [$host]\n";
 		exit;
 	}
 	my $ip2 = $hhosts{$host}->[0];
@@ -247,15 +247,21 @@ sub login_to {	# 登录主机 alia|ip-port-user
 }
 
 sub sub_ssh {
-#	可以通过 别名、ip-port-user、路由  登录.\n";
-	$routes = $hroute{$obj};
+	route_to($obj);
+	$ept->interact();  #	把控制权转交给用户
+}
+
+sub route_to { 		#	可以通过 别名、ip-port-user、路由  登录.\n";
+	my $obj = shift;
+	my $routes = $hroute{$obj};
 	if (!defined($routes)) {
 		print "sub_ssh unknow to login [$obj]\n";
 		exit;
 	}
-	@sp = split('\s+', $routes);
-	$cnt = scalar(@sp);
+	my @sp = split('\s+', $routes);
+	my $cnt = scalar(@sp);
 
+	my $i; my $spawn; my $fcur;
 	for ($i = $bgn; $i < $cnt; $i++) {	# 登录的主机从第一个即step1开始
 		if ($i == $bgn) {
 			$spawn = 1;
@@ -265,7 +271,8 @@ sub sub_ssh {
 
 		$fcur = login_to($sp[$i], $spawn, $fcur, 1);
 	}
-	$ept->interact();  #	把控制权转交给用户
+
+	return $fcur;
 }
 
 sub sub_scp {
@@ -273,7 +280,8 @@ sub sub_scp {
 	sub_scp_init();
 
 	# 因为机器可能不能连通，所以登录transit作为中转
-	$fcur = login_to("transit", 1, $fcur, 0);
+	#	$fcur = login_to("transit", 1, $fcur, 0);
+	$fcur = route_to("transit");
 
 	#从后一机器(npos)取文件到当前机器		 #递归函数
 	$pathmid = "/tmp";
