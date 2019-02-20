@@ -31,7 +31,7 @@ if (scalar(@ARGV) < 1) {
 	print "usage: $0 -showlflag	## 显示所有可用于登录的标帜\n";
 	print "usage: $0 -showhosts	## 显示所有配置的主机信息\n";
 	print "usage: $0 -showalias	## 显示所有配置的主机别名\n";
-	print "usage: $0 -scp hostsrc:/path/filesrc hostobj:/path/[fileobj] #scp. 将机器hostsrc的/path目录下的文件filesrc scp到机器hostobj的/path/[fileobj]\n";
+	print "usage: $0 -scp hostsrc:/path/filesrc hostobj:/path/[fileobj] [.] \n\t# scp. 将机器hostsrc的/path目录下的文件filesrc \n\t\t\tscp到机器hostobj的/path/[fileobj]. \n\t\t. : 任意字符 表示仅显示路由信息 不拷贝.\n";
 	exit;
 }
 
@@ -42,6 +42,7 @@ if ($0 =~ /(.+)\/.+/) {
 $obj = shift;
 
 $bgn = 2;	# 路由是从下标2 (step1)开始," ===== obj step1 ... "
+$rltransit = "transit";		# 默认中转机器
 
 init_hosts_file(); # 读入hosts文件 ==> %halias %hhosts %hroute
 
@@ -54,15 +55,22 @@ if ($obj eq "-showlflag") {
 } elsif ($obj eq "-scp") {
 	$strsrc = shift;
 	$strobj = shift;
+	$rtonly = shift;
+
 	if (!defined($strsrc) || !defined($strobj)) {
 		print "-scp need strsrc strobj \n";
 		exit;
 	}
+	$rtonly = 1 if (defined($rtonly));
+
 	$timeout = 3600;	# > 拷贝大文件的时长
 	sub_scp();
+
 } else {
+
 	$timeout = 30;
 	sub_ssh();
+
 }
 
 exit;
@@ -276,18 +284,27 @@ sub route_to { 		#	可以通过 别名、ip-port-user、路由  登录.\n";
 }
 
 sub sub_scp {
-	# 路由 vecrt[][] cntrt[], hostsrc pathsrc filesrc hostobj pathobj fileobj
+	# 得到:
+	# 路由 vecrt[][] cntrt[], 
+	# $rltransit
+	# hostsrc pathsrc filesrc hostobj pathobj fileobj
 	sub_scp_init();
 
-	# 因为机器可能不能连通，所以登录transit作为中转
-	#	$fcur = login_to("transit", 1, $fcur, 0);
-	$fcur = route_to("transit");
+	if ($rtonly == 1) {
+		print "rltransit:\t$rltransit\n";
+		route_print(0);
+		route_print(1);
+		return;
+	}
+
+	# 先登录$rltransit作为中转
+	$fcur = route_to($rltransit);
 
 	#从后一机器(npos)取文件到当前机器		 #递归函数
 	$pathmid = "/tmp";
-	if ($cntrt[0] == 1 && is_same_ipport($vecrt[0][0], "transit") == 1) {
-		$pathmid = $pathsrc;		# 	源就是transit
-	} elsif (is_same_ipport($vecrt[0][0], "transit") == 1) { # step1是transit
+	if ($cntrt[0] == 1 && is_same_ipport($vecrt[0][0], $rltransit) == 1) {
+		$pathmid = $pathsrc;		# 	源就是$rltransit
+	} elsif (is_same_ipport($vecrt[0][0], $rltransit) == 1) {#step1是$rltransit
 		get_file_from(1, $fcur); 
 	} else {
 		get_file_from(0, $fcur); 
@@ -295,11 +312,11 @@ sub sub_scp {
 #	print "pathmid[$pathmid]\n";
 
 	# 从当前机器的pathmid目录拷贝到后一机器(npos)	 #递归函数
-	if ($cntrt[1] == 1 && is_same_ipport($vecrt[1][0], "transit") == 1) {
+	if ($cntrt[1] == 1 && is_same_ipport($vecrt[1][0], $rltransit) == 1) {
 		if ($pathmid ne $pathobj || $filesrc ne $fileobj) {
 			$ept->send("cp -f $pathmid/$filesrc $pathobj/$fileobj;\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 		}
-	} elsif (is_same_ipport($vecrt[1][0], "transit") == 1) { # step1是transit
+	} elsif (is_same_ipport($vecrt[1][0], $rltransit) == 1) {#step1是$rltransit
 		cp_file_to($pathmid, 1, $fcur);
 	} else {
 		cp_file_to($pathmid, 0, $fcur);
@@ -386,12 +403,14 @@ sub get_file_from { 	#从后一机器(npos)取文件到当前机器的"/tmp" #�
 	}
 }
 
+sub sub_scp_init {
+	# 得到：
+	# 路由 vecrt[][] cntrt[], 
+	# $rltransit
+	# hostsrc pathsrc filesrc hostobj pathobj fileobj
 
-
-sub sub_scp_init {	
-	# 路由 vecrt[][] cntrt[], hostsrc pathsrc filesrc hostobj pathobj fileobj
-	#
 	# hostsrc:path/filesrc hostobj:path[/fileobj]  ## scp\n";
+	
 	get_scp_info($strsrc);
 	$hostsrc = $resvec[0];
 	$pathsrc = $resvec[1];
@@ -419,11 +438,53 @@ sub sub_scp_init {
 #
 	get_host_vec($hostsrc, 0);
 	get_host_vec($hostobj, 1);
+
+	get_scp_faster_route(); 	# 优化 路由 vecrt[][] cntrt[]	$rltransit
+
+}
+
+sub get_scp_faster_route { 	# 优化 路由 vecrt[][] cntrt[]	$rltransit
+
+	for (my $spos = $cntrt[0] - 1; $spos >= 0; $spos--) {
+		for (my $opos = $cntrt[1] - 1; $opos >= 0; $opos--) {
+			if (is_same_ipport($vecrt[0][$spos], $vecrt[1][$opos]) == 1) {
+
+				$rltransit= $vecrt[0][$spos];
+				route_move(0, $spos + 1);
+				route_move(1, $opos + 1);
+
+				return;	
+			}
+		}
+	}
+}
+
+sub route_print {
+	my $iop = shift;
+
+	print "iop[$iop]\t";
+	for (my $i = 0; $i < $cntrt[$iop]; $i++) {
+		print "$vecrt[$iop][$i]\t";
+	}
+	print "\n";
+}
+
+sub route_move {	# 移动 vecrt[$iop][] cntrt[$iop]
+	my $iop = shift;
+	my $pos = shift;
+
+	my $cnt = 0;
+	for (my $f = $pos, my $t = 0; $f < $cntrt[$iop]; $f++, $t++) {
+		$vecrt[$iop][$t] = $vecrt[$iop][$f];
+		$cnt++;
+	}
+	$cntrt[$iop] = $cnt if ($cnt > 0);
+
 }
 
 sub get_host_vec { 	# 路由读入 vecrt[][] cntrt[] 
 	my $hosttmp = shift;
-	my $pos = shift;
+	my $iop = shift;
 
 	$routes = $hroute{$hosttmp};
 	if (!defined($routes)) {
@@ -433,10 +494,10 @@ sub get_host_vec { 	# 路由读入 vecrt[][] cntrt[]
 	@sp = split('\s+', $routes);
 	$cnt = scalar(@sp);
 
-	$cntrt[$pos] = 0;
+	$cntrt[$iop] = 0;
 	for ($i = $bgn; $i < $cnt; $i++) {
-		$vecrt[$pos][$cntrt[$pos]] = $sp[$i];
-		$cntrt[$pos]++;
+		$vecrt[$iop][$cntrt[$iop]] = $sp[$i];
+		$cntrt[$iop]++;
 	}
 }
 

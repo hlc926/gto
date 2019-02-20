@@ -24,8 +24,9 @@
 ===	110		172.10.2.110	-		hlc			asswor		?			$			-					-
 === hd 		172.10.2.228	-		hadoop		asswor		?			hadoop		.#~/.hlc
 #
-# transit用于scp的中转. 因为机器可能不能连通
-# 				需要scp功能的机器不能 用？手工输入密码 (包括中转和经过的机器)。
+# transit作为scp的默认中转机器, 因为机器可能不能连通。
+#			在路由没有经过相同的机器时需要. 
+# 			需要scp功能的机器不能 用？手工输入密码 (包括中转和经过的机器)。
 ===	transit	172.10.2.31		-		hlc			asswor		passwd		$			-					-
 #
 ===	hdss1	172.10.2.100	10111	user		asswor		passwd 		$			-					-

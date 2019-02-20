@@ -20,7 +20,7 @@ Configurable remote host login script (with scp function)
 第2点的路由信息可以无，这样的话只能登录ma，因为到mb、mc、mo的路不通。  
 第2点的路由信息配置好后，不仅可以登录的mo，也可以登录到mb或mc(不需要再单独配置)。
 
-要用scp功能，还需配置一台**transit**用于中转，因为机器可能不能连通。(具体参看knownhosts)
+要用scp功能，可配置一台**transit**作为默认中转机器，因为机器可能不能连通。(具体参看knownhosts)
 
 #### 运行 gto 登录 
 **gto** 和 **knownhosts**需要在同一目录(这台机器需要perl 及 perl-Expect)。
