@@ -96,18 +96,31 @@ sub init_hosts_file {
 # 读入hosts文件 %halias %hhosts %hroute
 	#
 	open(HF, "$pathapp/knownhosts") or die "open $pathapp/knownhosts err";
-	while($line = <HF>) {
-		if ($line =~ /^===\s+/) {
-			@sp = split('\s+', $line);
+	while(my $line = <HF>) {
+		if ($line =~ /^=======\s+/) {
+			if ($line =~ /^=======\s+(\w+)\s+(.+)/) {
+				if (!defined($hcmd{$1})) {
+					$hcmd{$1} = $2;
+				} else {
+					print "重复[$1]: $line";
+					exit;
+				}
+			}
+		} elsif ($line =~ /^===\s+/) {
+			my @sp = split('\s+', $line);
 
 			if ($sp[2] eq "-") {
 				print "err ip 地址必需: $line \n";
 				exit;
 			}
-			$port = $sp[3];
+			my $ip = $sp[2];
+			my $port = $sp[3];
+			my $user = $sp[4];
 			$port = "22" if ($port eq "-");
-			$key = "$sp[2]-$port-$sp[4]";
 
+			my $key = "$ip-$port-$user";
+
+			my $str = "";
 			if ($sp[1] ne "-") {
 				if (!defined($halias{$sp[1]})) {
 					$halias{$sp[1]} = $key;
@@ -119,9 +132,9 @@ sub init_hosts_file {
 				insert_rt($sp[1], $str);	# 别名加入路由信息
 			}
 			if (!defined($hhosts{$key})) {
-				$hhosts{$key}->[0] = $sp[2];	# ip
+				$hhosts{$key}->[0] = $ip;	# ip
 				$hhosts{$key}->[1] = $port;		# port
-				$hhosts{$key}->[2] = $sp[4];	# user
+				$hhosts{$key}->[2] = $user;	# user
 				$hhosts{$key}->[3] = $sp[5];	# 前标志
 				$hhosts{$key}->[4] = $sp[6];	# 密码
 				$hhosts{$key}->[5] = $sp[7];	# 后标志
@@ -137,14 +150,14 @@ sub init_hosts_file {
 			}
 
 		} elsif ($line =~ /^=====\s+/) {
-			@sp = split('\s+', $line);
+			my @sp = split('\s+', $line);
 
 			insert_rt($sp[1], $line);
 
-			$cnt = scalar(@sp);
+			my $cnt = scalar(@sp);
 			for ($i = $bgn + 1; $i < $cnt - 1; $i++) { # 对中间机器替换路由信息
-				$key = $sp[$i];
-				$str = "";
+				my $key = $sp[$i];
+				my $str = "";
 				for($j = $bgn; $j <= $i; $j++) {
 					$str .= "	$sp[$j]";
 				}
@@ -227,6 +240,26 @@ sub login_to {	# 登录主机 alia|ip-port-user
 
 	$param =~ s/#/ /g;
 	$param = "" if ($param eq "-");
+
+	if ($ip =~ /cmd/) {
+		if ($ip =~ /cmd=(\w+)/) {
+			my $cmd = $hcmd{$1};
+			if (defined($cmd)) {
+				$ip = `$cmd`;
+				$ip =~ s/\s+//g;
+			} else {
+				print "$ip undefine [$1]";
+				exit;
+			}
+		} else {
+			print "[$ip] cfg error\n";
+			exit;
+		}
+	}
+	if ($ip eq "") {
+		print "ip[$ip]err";
+		exit;
+	}
 
 	my $str = "ssh $param -l $user $ip -p $port";
 #	print "[$str]\n";

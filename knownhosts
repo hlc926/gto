@@ -8,6 +8,7 @@
 # ===开头 代表 主机登录信息 . 
 # 				ip-port-user 为一项.
 #
+#	ip:			具体ip或可以通过命令行得到ip(cmd=cmdname cmdname看 ======= 配置)
 # 	port 端口： 具体端口或 - (- 表示 22)
 # 	登录前标志:	输入密码前显示的(如Passwd、passwd、$)，免密时可(-)。
 # 	密码：		具体密码 或 ？(表示手工输入) 或 - (表示免密登录)。
@@ -17,11 +18,12 @@
 # 	ssh参数: 	ssh参数(空格' '用#代替)，不用时(-)。
 #
 # 	别名	ip				port	user		登录前标志	密码		登录后标志	执行命令(#代替' ')	ssh参数(#代替' ')
-=== f14 	200.200.1.2		-		root		asswor		passwd		-			-			-o#ServerAliveInterval=60
-=== min		200.200.2.2		-		root		-			-			-			-					-
-=== win 	200.200.0.2		-		Administrator	asswor	?			-			-					-
+=== f14 	192.168.1.2		-		root		asswor		passwd		-			-			-o#ServerAliveInterval=60
+=== min		192.168.2.2		-		root		-			-			-			-					-
+=== win 	192.168.0.2		-		Administrator	asswor	?			-			-					-
 #
 ===	110		172.10.2.110	-		hlc			asswor		?			$			-					-
+===	128		cmd=cmdyyy		-		hlc			asswor		?			$			-					-
 === hd 		172.10.2.228	-		hadoop		asswor		?			hadoop		.#~/.hlc
 #
 # transit作为scp的默认中转机器, 因为机器可能不能连通。
@@ -49,5 +51,10 @@
 =====	hd80	hdss1	hdss2	hd80
 =====	test	ma
 #
-#
+
+#############################################
+# =======开头 代表 通过命令获取主机ip地址
+#			命令名		命令 
+=======		cmdyyy		sh getIp.sh
+
 #############################################
