@@ -37,6 +37,8 @@ if (scalar(@ARGV) < 1) {
 
 if ($0 =~ /(.+)\/.+/) { 
 	$pathapp = $1;
+} else {
+	$pathapp = ".";
 }
 
 $obj = shift;
@@ -463,7 +465,7 @@ sub sub_scp_init {
 		exit;
 	}
 	if ($hostsrc eq $hostobj) {
-		print "hostobj[$hostobj] == pathobj[$pathobj] \n";
+		print "hostobj[$hostobj] == hostsrc[$hostsrc] \n";
 		exit;
 	}
 
