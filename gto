@@ -41,20 +41,22 @@ if ($0 =~ /(.+)\/.+/) {
 	$pathapp = ".";
 }
 
-$obj = shift;
+$op = shift;
 
+$finit = 0;
 $bgn = 2;	# 路由是从下标2 (step1)开始," ===== obj step1 ... "
 $rltransit = "transit";		# 默认中转机器
+$local = "127.0.0.1-22--";	# 本地scp
 
 init_hosts_file(); # 读入hosts文件 ==> %halias %hhosts %hroute
 
-if ($obj eq "-showlflag") {
+if ($op eq "-showlflag") {
 	sub_show_route();
-} elsif ($obj eq "-showhosts") {
+} elsif ($op eq "-showhosts") {
 	sub_show_hosts();
-} elsif ($obj eq "-showalias") {
+} elsif ($op eq "-showalias") {
 	sub_show_alias();
-} elsif ($obj eq "-scp") {
+} elsif ($op eq "-scp") {
 	$strsrc = shift;
 	$strobj = shift;
 	$rtonly = shift;
@@ -71,6 +73,7 @@ if ($obj eq "-showlflag") {
 } else {
 
 	$timeout = 30;
+	$obj = $op;
 	sub_ssh();
 
 }
@@ -217,10 +220,9 @@ sub get_real_host {	# ip-port-user
 }
 
 sub login_to {	# 登录主机 alia|ip-port-user
-				# hostd 	spawn:1		fcur 	执行命令flag:1
+				# hostd 	fcur 	执行命令flag:1
 				# 返回当前登录标帜 fa
 	my $host = shift;
-	my $spawn = shift;
 	my $fcur = shift;
 	my $flag = shift;
 
@@ -264,10 +266,13 @@ sub login_to {	# 登录主机 alia|ip-port-user
 	}
 
 	my $str = "ssh $param -l $user $ip -p $port";
-#	print "[$str]\n";
+	$str = "bash" if ($host eq $local);
 
-	if ($spawn eq "1") {
-		$ept = Expect->spawn("$str\n") or die $!;
+	print "$str\n" if ($op eq "-scp");
+
+	if ($finit == 0) {
+		$ept = Expect->spawn("$str\n") or die $!;	# 不能是scp那种会立即返回的
+		$finit = 1;
 	} else {
 		$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
 	}
@@ -304,15 +309,9 @@ sub route_to { 		#	可以通过 别名、ip-port-user、路由  登录.\n";
 	my @sp = split('\s+', $routes);
 	my $cnt = scalar(@sp);
 
-	my $i; my $spawn; my $fcur;
-	for ($i = $bgn; $i < $cnt; $i++) {	# 登录的主机从第一个即step1开始
-		if ($i == $bgn) {
-			$spawn = 1;
-		} else {
-			$spawn = 0;
-		}
-
-		$fcur = login_to($sp[$i], $spawn, $fcur, 1);
+	my $fcur = "";
+	for (my $i = $bgn; $i < $cnt; $i++) {	# 登录的主机从第一个即step1开始
+		$fcur = login_to($sp[$i], $fcur, 1);
 	}
 
 	return $fcur;
@@ -385,8 +384,10 @@ sub cp_file_to { # 从当前机器的pathmid目录拷贝到后一机器(npos)	 #
 	$file = $fileobj if ($npos == $cntrt[1] - 1);   # 目标机器
 
 	my $str = "scp -P $port $pathmid/$filesrc $user\@$ip:$path/$file; ";
-#	print "####### [$npos] [$cntrt[1]] [$nhost]\n#######[$str]\n";
+#	print "#######cp_file_to : [$npos] [$cntrt[1]] [$nhost]\n#######[$str]\n";
+
 	$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
+
 	if ($passwd ne "-") {
 		$ept->expect($timeout, 
 			['(yes/no)', sub {$ept->send("yes\n"); exp_continue;}],
@@ -395,7 +396,7 @@ sub cp_file_to { # 从当前机器的pathmid目录拷贝到后一机器(npos)	 #
 	}
 
 	if ($npos < $cntrt[1] - 1) {	# 后一台不是最后一台机器
-		my $fnew = login_to($nhost, 0, $fcur, 0);
+		my $fnew = login_to($nhost, $fcur, 0);
 		cp_file_to("/tmp", $npos + 1, $fnew);	
 		$ept->send("exit;\n") if (($ept->expect($timeout, $fnew))[0] > 0);
 	}
@@ -408,7 +409,7 @@ sub get_file_from { 	#从后一机器(npos)取文件到当前机器的"/tmp" #�
 #	print "####### get_file_from [$npos][$nhost]\n";
 
 	if ($npos < $cntrt[0] - 1) {	# 后一台不是最后一台机器
-		my $fnew = login_to($nhost, 0, $fcur, 0);
+		my $fnew = login_to($nhost, $fcur, 0);
 		get_file_from($npos + 1, $fnew);	
 		$ept->send("exit;\n") if (($ept->expect($timeout, $fnew))[0] > 0);
 	}
@@ -428,8 +429,10 @@ sub get_file_from { 	#从后一机器(npos)取文件到当前机器的"/tmp" #�
 	$path = $pathsrc if ($npos == $cntrt[0] - 1);	# 源机器
 
 	my $str = "scp -P $port $user\@$ip:$path/$filesrc /tmp/; ";
-#	print "####### [$npos] $cntrt[0]] [$nhost]\n#######[$str]\n";
+#	print "#######get_file_from :[$npos] [$cntrt[0]] [$nhost]\n#######[$str]\n";
+
 	$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
+
 	if ($passwd ne "-") {
 		$ept->expect($timeout, 
 			['(yes/no)', sub {$ept->send("yes\n"); exp_continue;}],
@@ -471,7 +474,7 @@ sub sub_scp_init {
 
 #	print "[$hostsrc][$pathsrc][$filesrc]	[$hostobj][$pathobj][$fileobj]\n";	
 #
-	get_host_vec($hostsrc, 0);
+	get_host_vec($hostsrc, 0);	# 路由读入 vecrt[][] cntrt[] $rltransit
 	get_host_vec($hostobj, 1);
 
 	get_scp_faster_route(); 	# 优化 路由 vecrt[][] cntrt[]	$rltransit
@@ -485,8 +488,8 @@ sub get_scp_faster_route { 	# 优化 路由 vecrt[][] cntrt[]	$rltransit
 			if (is_same_ipport($vecrt[0][$spos], $vecrt[1][$opos]) == 1) {
 
 				$rltransit= $vecrt[0][$spos];
-				route_move(0, $spos + 1);
-				route_move(1, $opos + 1);
+				route_move(0, $spos == $cntrt[0] - 1 ? $spos : $spos + 1);
+				route_move(1, $opos == $cntrt[1] - 1 ? $opos : $opos + 1);
 
 				return;	
 			}
@@ -517,7 +520,7 @@ sub route_move {	# 移动 vecrt[$iop][] cntrt[$iop]
 
 }
 
-sub get_host_vec { 	# 路由读入 vecrt[][] cntrt[] 
+sub get_host_vec { 	# 路由读入 vecrt[][] cntrt[] $rltransit
 	my $hosttmp = shift;
 	my $iop = shift;
 
@@ -534,6 +537,8 @@ sub get_host_vec { 	# 路由读入 vecrt[][] cntrt[]
 		$vecrt[$iop][$cntrt[$iop]] = $sp[$i];
 		$cntrt[$iop]++;
 	}
+
+	$rltransit = $local if ($vecrt[$iop][0] eq $local);
 }
 
 sub get_scp_info {	# 根据输入的str 得到 host path file 放入 resvec[]
