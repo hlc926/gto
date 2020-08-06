@@ -27,7 +27,8 @@
 ===	128		cmd=cmdyyy		-		hlc			asswor		?			$			-					-
 === hd 		172.10.2.228	-		hadoop		asswor		?			hadoop		.#~/.hlc
 
-# local 用于本机scp (对应 gto 写死 127.0.0.1-22-- )
+
+# local 用于本机scp (只需修改 登录后标志xxx)
 ===	local 	127.0.0.1		-		-			-			-			xxx			-					-
 
 # transit作为scp的默认中转机器, 因为机器可能不能连通。

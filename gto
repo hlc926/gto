@@ -46,7 +46,7 @@ $op = shift;
 $finit = 0;
 $bgn = 2;	# 路由是从下标2 (step1)开始," ===== obj step1 ... "
 $rltransit = "transit";		# 默认中转机器
-$local = "127.0.0.1-22--";	# 本地scp
+$local = "local";	# 本地scp
 
 init_hosts_file(); # 读入hosts文件 ==> %halias %hhosts %hroute
 
@@ -124,6 +124,7 @@ sub init_hosts_file {
 			$port = "22" if ($port eq "-");
 
 			my $key = "$ip-$port-$user";
+			$key = $local if ($sp[1] eq $local);
 
 			my $str = "";
 			if ($sp[1] ne "-") {
