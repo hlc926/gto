@@ -27,7 +27,7 @@ use Expect;
 
 if (scalar(@ARGV) < 1) {
 	print "可以通过标帜(ip-port-user or 别名 or 路由)登录.\n"; #
-	print "usage: $0 <lflag>	## lflag 登录标帜\n";
+	print "usage: $0 <lflag> [ssh|tn]	## lflag 登录标帜 tn:telnet\n";
 	print "usage: $0 -showlflag	## 显示所有可用于登录的标帜\n";
 	print "usage: $0 -showhosts	## 显示所有配置的主机信息\n";
 	print "usage: $0 -showalias	## 显示所有配置的主机别名\n";
@@ -71,6 +71,7 @@ if ($op eq "-showlflag") {
 	sub_scp();
 
 } else {
+	$lgflag = shift;	# ssh telnet tn
 
 	$timeout = 30;
 	$obj = $op;
@@ -268,6 +269,7 @@ sub login_to {	# 登录主机 alia|ip-port-user
 
 	my $str = "ssh $param -l $user $ip -p $port";
 	$str = "bash" if ($host eq $local);
+	$str = "telnet $ip $port" if ($lgflag eq "tn" || $lgflag eq "telnet");
 
 	print "$str\n" if ($op eq "-scp");
 
@@ -276,6 +278,10 @@ sub login_to {	# 登录主机 alia|ip-port-user
 		$finit = 1;
 	} else {
 		$ept->send("$str\n") if (($ept->expect($timeout, $fcur))[0] > 0);
+	}
+
+	if ($lgflag eq "tn" || $lgflag eq "telnet") {
+		$ept->send("$user\n") if (($ept->expect($timeout, "login"))[0] > 0);
 	}
 
 	if ($passwd ne "-" && $passwd ne "?") {
