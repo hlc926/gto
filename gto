@@ -4,7 +4,8 @@
 # BSD 3-Clause "New" or "Revised" License
 
 use Expect; 
-# 'perl-Expect'  # maybe you need to install
+# 'perl-Expect'  # maybe you need to 
+			# dnf install perl-Expect.noarch perl-IO-Stty.noarch
 
 # $exp = new Expect;  #new一个Expect.
 # $exp->spawn($command,@params);  #fork和exec一个新进程用来执行$command命令.
